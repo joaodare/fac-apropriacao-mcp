@@ -6,7 +6,7 @@ Servidor MCP stdio em TypeScript (`@modelcontextprotocol/sdk` + Zod), Node 20, n
 
 Nomes em português. Resposta curta: id, título, board, coluna, raia, dono, prioridade, campos nome/valor e horas.
 
-- [ ] Leitura: `whoami`, `listar_boards`, `buscar_cards`, `obter_card`, `listar_campos`, `listar_horas`
+- [ ] Leitura: `whoami`, `buscar_cards`, `obter_card`, `listar_campos`, `listar_horas`
 - [ ] Escrita: `lancar_horas`, `alterar_horas`, `excluir_horas`, `criar_card`, `atualizar_card`
 - [ ] A chave não é argumento de nenhuma tool
 

@@ -4,7 +4,7 @@ import { KanbanizeClient } from "../kanbanize/client.js";
 import { DomainError } from "../kanbanize/errors.js";
 import { atualizarCard, criarCard } from "./cards.js";
 import { alterarHoras, excluirHoras, lancarHoras } from "./horas.js";
-import { buscarCards, listarBoards, listarCampos, listarHoras, obterCard, whoami } from "./leitura.js";
+import { buscarCards, listarCampos, listarHoras, obterCard, whoami } from "./leitura.js";
 
 const campoSchema = z.object({
   nome: z.string().min(1).describe("Nome do campo customizado"),
@@ -33,17 +33,6 @@ export function registerTools(server: McpServer, client: KanbanizeClient): void 
     "whoami",
     { description: "Mostra o usuário dono da chave da API." },
     async () => run(() => whoami(client)),
-  );
-
-  server.registerTool(
-    "listar_boards",
-    {
-      description: "Lista boards visíveis para a chave. As outras tools usam só o board IA FacPlan.",
-      inputSchema: z.object({
-        nome: z.string().optional().describe("Filtra pelo nome, sem diferenciar maiúsculas"),
-      }),
-    },
-    async (args) => run(() => listarBoards(client, args.nome)),
   );
 
   server.registerTool(

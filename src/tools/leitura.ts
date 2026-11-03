@@ -2,7 +2,6 @@ import {
   formatUser,
   getCard,
   getMe,
-  listBoards,
   listCards,
   loadFields,
   loadStructure,
@@ -18,16 +17,6 @@ import { cardFieldLines, fieldValueHas, formatCard, loggedHours } from "./format
 export async function whoami(client: KanbanizeClient): Promise<string> {
   const me = await getMe(client);
   return `Usuário ${formatUser(me, true)}`;
-}
-
-export async function listarBoards(client: KanbanizeClient, nome?: string): Promise<string> {
-  let boards = await listBoards(client);
-  if (nome?.trim()) {
-    const query = nome.trim().toLowerCase();
-    boards = boards.filter((board) => board.name.toLowerCase().includes(query) || String(board.id) === nome.trim());
-  }
-  if (boards.length === 0) return "Nenhum board encontrado.";
-  return boards.map((board) => `${board.id} — ${board.name}`).join("\n");
 }
 
 export async function buscarCards(
