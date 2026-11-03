@@ -1,0 +1,32 @@
+{
+  "fonte": "https://grupofacil.kanbanize.com/openapi/json",
+  "conferido_em": "2026-11-03",
+  "loggedTime": {
+    "post": {
+      "required": ["card_id", "time"],
+      "time": "integer seconds",
+      "comment": "string opcional",
+      "description": false,
+      "user_id_enviado": false
+    },
+    "patch": {
+      "time": "integer seconds",
+      "comment": "string",
+      "description": false,
+      "user_id_enviado": false
+    }
+  },
+  "cards": {
+    "post": {
+      "description": "string",
+      "comment": false,
+      "board_id": false,
+      "custom_fields": "field_id + value, ou selected_values_to_add_or_update.value_id no dropdown"
+    },
+    "patch": {
+      "description_omitida_permanece": true,
+      "comment": false,
+      "column_id_enviado": false
+    }
+  }
+}
