@@ -13,10 +13,15 @@ export type HttpFetch = (
 
 export type Query = Record<string, string | number | undefined>;
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
 const defaultFetch: HttpFetch = async (url, init) => {
-  const response = await fetch(url, init);
+  // redirect "error": o header apikey não pode seguir um redirect para outra origem.
+  const response = await fetch(url, { ...init, redirect: "error", signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
   return { status: response.status, text: () => response.text() };
 };
+
+const UNKNOWN_WRITE = "A gravação pode ter acontecido. Confira com listar_horas ou obter_card antes de repetir.";
 
 const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -26,12 +31,14 @@ export class KanbanizeClient {
   private readonly fetchImpl: HttpFetch;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly maxAttempts: number;
+  private readonly maxRateWaitSeconds: number;
 
   constructor(options: {
     config?: AppConfig;
     fetchImpl?: HttpFetch;
     sleep?: (ms: number) => Promise<void>;
     maxAttempts?: number;
+    maxRateWaitSeconds?: number;
   } = {}) {
     const config = options.config ?? loadConfig();
     this.apiKey = config.apiKey;
@@ -39,6 +46,7 @@ export class KanbanizeClient {
     this.fetchImpl = options.fetchImpl ?? defaultFetch;
     this.sleep = options.sleep ?? defaultSleep;
     this.maxAttempts = options.maxAttempts ?? 3;
+    this.maxRateWaitSeconds = options.maxRateWaitSeconds ?? 45;
   }
 
   get(path: string, query?: Query): Promise<unknown> {
@@ -68,6 +76,8 @@ export class KanbanizeClient {
       body = JSON.stringify(options.body);
     }
     const url = this.url(path, options.query);
+    const write = method !== "GET";
+    let waited = 0;
     for (let attempt = 1; attempt <= this.maxAttempts; attempt++) {
       let status: number;
       let text: string;
@@ -76,14 +86,16 @@ export class KanbanizeClient {
         status = response.status;
         text = await response.text();
       } catch {
-        throw new DomainError("Falha de rede ao chamar a API. A requisição não foi repetida.");
+        const base = "Falha de rede ou timeout ao chamar a API. A requisição não foi repetida.";
+        throw new DomainError(write ? `${base} ${UNKNOWN_WRITE}` : base);
       }
       if (status >= 200 && status < 300) {
         if (!text) return null;
         try {
           return JSON.parse(text) as unknown;
         } catch {
-          throw new DomainError(`Erro HTTP ${status}.`);
+          const base = `A API respondeu HTTP ${status} com uma resposta ilegível.`;
+          throw new DomainError(write ? `${base} ${UNKNOWN_WRITE}` : base);
         }
       }
       let parsed: unknown;
@@ -93,7 +105,8 @@ export class KanbanizeClient {
         parsed = undefined;
       }
       const wait = readRateLimitWait(parsed);
-      if (wait !== null && attempt < this.maxAttempts) {
+      if (wait !== null && attempt < this.maxAttempts && waited + wait <= this.maxRateWaitSeconds) {
+        waited += wait;
         await this.sleep(wait * 1000);
         continue;
       }

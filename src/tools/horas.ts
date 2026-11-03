@@ -1,6 +1,7 @@
 import { buildLoggedTimeCreate, buildLoggedTimePatch } from "../kanbanize/bodies.js";
 import { formatUser, getMe } from "../kanbanize/catalog.js";
 import { KanbanizeClient } from "../kanbanize/client.js";
+import { DomainError } from "../kanbanize/errors.js";
 import { num, oneOf, str } from "../kanbanize/json.js";
 import { assertWorkDate, hoursToSeconds, secondsToHours } from "../kanbanize/time.js";
 
@@ -37,6 +38,7 @@ export async function alterarHoras(
   const seconds = args.horas === undefined ? undefined : hoursToSeconds(args.horas);
   const date = args.data === undefined ? undefined : assertWorkDate(args.data);
   const body = buildLoggedTimePatch({ seconds, date, comment: args.comentario });
+  await assertOwnEntry(client, args.lancamentoId);
   await client.patch(`/loggedTime/${args.lancamentoId}`, body);
   const lines = [`Lançamento ${args.lancamentoId} alterado.`];
   if (seconds !== undefined) lines.push(`Horas: ${secondsToHours(seconds)}`);
@@ -46,6 +48,19 @@ export async function alterarHoras(
 }
 
 export async function excluirHoras(client: KanbanizeClient, lancamentoId: number): Promise<string> {
+  await assertOwnEntry(client, lancamentoId);
   await client.delete(`/loggedTime/${lancamentoId}`);
   return `Lançamento ${lancamentoId} excluído.`;
+}
+
+async function assertOwnEntry(client: KanbanizeClient, lancamentoId: number): Promise<void> {
+  const [me, entry] = await Promise.all([
+    getMe(client),
+    client.get(`/loggedTime/${lancamentoId}`).then(oneOf),
+  ]);
+  const owner = num(entry?.user_id);
+  if (owner === undefined) throw new DomainError(`Lançamento ${lancamentoId} não encontrado.`);
+  if (owner !== num(me.user_id)) {
+    throw new DomainError(`O lançamento ${lancamentoId} é de outro usuário. Só é possível mexer nos lançamentos do usuário da chave.`);
+  }
 }

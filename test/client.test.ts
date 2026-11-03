@@ -51,6 +51,31 @@ describe("cliente HTTP", () => {
     expect(networkCalls).toBe(1);
   });
 
+  it("não espera RL02 além do teto total", async () => {
+    const sleeps: number[] = [];
+    let calls = 0;
+    const limited = client(async () => {
+      calls += 1;
+      return json(429, { error: { code: "RL02", details: { retry_after: 120 } } });
+    }, async (ms) => {
+      sleeps.push(ms);
+    });
+    await expect(limited.get("/me")).rejects.toThrow(/RL02/);
+    expect(sleeps).toEqual([]);
+    expect(calls).toBe(1);
+  });
+
+  it("avisa que a escrita pode ter sido gravada quando o resultado é desconhecido", async () => {
+    const network = client(async () => {
+      throw new Error("timeout");
+    });
+    await expect(network.post("/loggedTime", {})).rejects.toThrow(/pode ter acontecido/);
+    await expect(network.get("/me")).rejects.not.toThrow(/pode ter acontecido/);
+
+    const garbled = client(async () => ({ status: 200, text: async () => "<html>ok</html>" }));
+    await expect(garbled.post("/cards", {})).rejects.toThrow(/HTTP 200 com uma resposta ilegível.*pode ter acontecido/);
+  });
+
   it("manda a chave no header e não na URL", async () => {
     let seen = "";
     let header = "";
@@ -78,6 +103,7 @@ describe("lançamento e atualização sem rede", () => {
     expect(bodies).toEqual([{ card_id: 10, time: 3600, date: "2026-11-02", comment: "nota" }]);
     expect(text).toContain("Horas: 1");
     expect(text).toContain("Usuário: 7 — Ana");
+    expect(text).not.toContain("ana@example.com");
     expect(text).not.toContain(KEY);
   });
 

@@ -2,16 +2,16 @@ import { DomainError } from "./errors.js";
 
 const VALUE_TYPES = new Set(["single_line_text", "multi_line_text", "number", "date", "link"]);
 
-const PRIORITY: Record<string, number> = {
-  critica: 1,
-  critical: 1,
-  alta: 2,
-  high: 2,
-  media: 3,
-  average: 3,
-  baixa: 4,
-  low: 4,
-};
+const PRIORITY = new Map<string, number>([
+  ["critica", 1],
+  ["critical", 1],
+  ["alta", 2],
+  ["high", 2],
+  ["media", 3],
+  ["average", 3],
+  ["baixa", 4],
+  ["low", 4],
+]);
 
 export interface FieldInput {
   fieldId: number;
@@ -25,8 +25,8 @@ export function parsePriority(value: string): number {
   const trimmed = value.trim();
   if (/^[1-4]$/.test(trimmed)) return Number(trimmed);
   const key = trimmed.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
-  const found = PRIORITY[key];
-  if (!found) throw new DomainError("Prioridade inválida. Use Crítica, Alta, Média, Baixa ou 1 a 4.");
+  const found = PRIORITY.get(key);
+  if (found === undefined) throw new DomainError("Prioridade inválida. Use Crítica, Alta, Média, Baixa ou 1 a 4.");
   return found;
 }
 

@@ -33,8 +33,9 @@ export function secondsToHours(seconds: number): number {
   return Math.round((seconds / 3600) * 100) / 100;
 }
 
-export function assertWorkDate(date: string, now: Date = new Date()): string {
-  const match = DATE_RE.exec(date.trim());
+export function assertDateFormat(date: string): string {
+  const trimmed = date.trim();
+  const match = DATE_RE.exec(trimmed);
   if (!match) throw new DomainError("Data inválida. Use YYYY-MM-DD.");
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -43,9 +44,13 @@ export function assertWorkDate(date: string, now: Date = new Date()): string {
   if (utc.getUTCFullYear() !== year || utc.getUTCMonth() !== month - 1 || utc.getUTCDate() !== day) {
     throw new DomainError("Data inválida. Use YYYY-MM-DD.");
   }
-  const today = todayInSaoPaulo(now);
-  if (date.trim() > today) {
+  return trimmed;
+}
+
+export function assertWorkDate(date: string, now: Date = new Date()): string {
+  const trimmed = assertDateFormat(date);
+  if (trimmed > todayInSaoPaulo(now)) {
     throw new DomainError("Data futura não é permitida (fuso America/Sao_Paulo).");
   }
-  return date.trim();
+  return trimmed;
 }

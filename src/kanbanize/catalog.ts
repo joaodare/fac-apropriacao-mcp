@@ -80,10 +80,10 @@ export async function getMe(client: KanbanizeClient): Promise<Record<string, unk
   return me;
 }
 
-export function formatUser(me: Record<string, unknown> | undefined): string {
+export function formatUser(me: Record<string, unknown> | undefined, withEmail = false): string {
   if (!me) return "usuário da chave";
   const id = num(me.user_id);
-  const email = str(me.email);
+  const email = withEmail ? str(me.email) : undefined;
   const name = str(me.realname) ?? str(me.username) ?? str(me.name) ?? email ?? "usuário da chave";
   const idPart = id ? `${id} — ` : "";
   const emailPart = email && email !== name ? ` (${email})` : "";

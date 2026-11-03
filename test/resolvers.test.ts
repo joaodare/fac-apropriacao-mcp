@@ -50,6 +50,18 @@ describe("resolução por nome", () => {
     expect(resolvePlacement(columns, lanes, "Doing", "Padrão")).toEqual({ columnId: 11, laneId: 21 });
     expect(resolvePlacement(columns, lanes, "Backlog.Filho", "Expedite")).toEqual({ columnId: 12, laneId: 20 });
   });
+
+  it("desambigua raia de mesmo nome pelo workflow da coluna", () => {
+    const sameLanes = parseStructureSide(
+      {
+        "30": { name: "Default", workflow_id: 1 },
+        "31": { name: "Default", workflow_id: 2 },
+      },
+      ["lane_id"],
+    );
+    expect(resolvePlacement(columns, sameLanes, "Filho", "Default")).toEqual({ columnId: 12, laneId: 30 });
+    expect(() => resolvePlacement(columns, sameLanes, "Doing", "Default")).toThrow(/mais de um workflow/);
+  });
 });
 
 describe("dropdown", () => {

@@ -41,22 +41,30 @@ export function resolveByName(
   workflowId?: number,
 ): NamedRef {
   const q = query.trim();
+  const chosen = findByName(items, q, kind, workflowId);
+  if (chosen.length > 1) {
+    throw new DomainError(`${kind} "${q}" corresponde a mais de um item: ${describe(chosen)}.`);
+  }
+  const found = chosen[0];
+  if (!found) throw new DomainError(`${kind} "${q}" não encontrado.`);
+  return found;
+}
+
+function findByName(items: NamedRef[], query: string, kind: string, workflowId?: number): NamedRef[] {
+  const q = query.trim();
   if (!q) throw new DomainError(`${kind} sem nome.`);
   const pool = workflowId === undefined ? items : items.filter((item) => item.workflowId === workflowId);
-  const exact = pool.filter((item) => norm(item.name) === norm(q));
-  let chosen = exact;
+  let chosen = pool.filter((item) => norm(item.name) === norm(q));
   if (chosen.length === 0 && q.includes(".")) {
     const ultimo = lastSegment(q);
     chosen = pool.filter((item) => norm(item.name) === norm(ultimo));
   }
   if (chosen.length === 0) throw new DomainError(`${kind} "${q}" não encontrado.`);
-  if (chosen.length > 1) {
-    const list = chosen.map((item) => `${item.name} (#${item.id})`).join(", ");
-    throw new DomainError(`${kind} "${q}" corresponde a mais de um item: ${list}.`);
-  }
-  const found = chosen[0];
-  if (!found) throw new DomainError(`${kind} "${q}" não encontrado.`);
-  return found;
+  return chosen;
+}
+
+function describe(items: NamedRef[]): string {
+  return items.map((item) => `${item.name} (#${item.id})`).join(", ");
 }
 
 export function parseStructureSide(value: unknown, idKeys: string[]): NamedRef[] {
@@ -156,10 +164,22 @@ export function resolvePlacement(
   coluna: string,
   raia: string,
 ): Placement {
-  const lane = resolveByName(lanes, raia, "Raia");
-  const column = resolveByName(columns, coluna, "Coluna", lane.workflowId);
-  if (column.workflowId && lane.workflowId && column.workflowId !== lane.workflowId) {
-    throw new DomainError("Coluna e raia estão em workflows diferentes.");
+  const laneHits = findByName(lanes, raia, "Raia");
+  const columnHits = findByName(columns, coluna, "Coluna");
+  const pairs = laneHits.flatMap((lane) =>
+    columnHits
+      .filter((column) => !column.workflowId || !lane.workflowId || column.workflowId === lane.workflowId)
+      .map((column) => ({ column, lane })),
+  );
+  if (pairs.length === 0) throw new DomainError("Coluna e raia estão em workflows diferentes.");
+  if (pairs.length > 1) {
+    throw new DomainError(
+      `Coluna "${coluna.trim()}" e raia "${raia.trim()}" casam em mais de um workflow: ` +
+        `colunas ${describe([...new Set(pairs.map((pair) => pair.column))])}; ` +
+        `raias ${describe([...new Set(pairs.map((pair) => pair.lane))])}.`,
+    );
   }
-  return { columnId: column.id, laneId: lane.id };
+  const [pair] = pairs;
+  if (!pair) throw new DomainError("Coluna e raia estão em workflows diferentes.");
+  return { columnId: pair.column.id, laneId: pair.lane.id };
 }

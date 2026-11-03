@@ -11,12 +11,12 @@ import {
 import { KanbanizeClient } from "../kanbanize/client.js";
 import { DomainError } from "../kanbanize/errors.js";
 import { asRecord, listOf, num, str } from "../kanbanize/json.js";
-import { assertWorkDate, secondsToHours } from "../kanbanize/time.js";
+import { assertDateFormat, secondsToHours } from "../kanbanize/time.js";
 import { cardFieldLines, fieldValueHas, formatCard, loggedHours } from "./format.js";
 
 export async function whoami(client: KanbanizeClient): Promise<string> {
   const me = await getMe(client);
-  return `Usuário ${formatUser(me)}`;
+  return `Usuário ${formatUser(me, true)}`;
 }
 
 export async function listarBoards(client: KanbanizeClient, nome?: string): Promise<string> {
@@ -62,11 +62,17 @@ export async function buscarCards(
     });
   }
   const fields = local && boardId ? await loadFields(client, boardId) : [];
+  if (args.ocorrencia) assertFieldExists(fields, OCORRENCIA, "ocorrência");
+  if (args.wbs) assertFieldExists(fields, WBS, "WBS");
   const filtered = local
     ? cards.filter((card) => matches(card, args, fields))
     : cards;
+  const warn =
+    local && cards.length === 100
+      ? `\n\nAviso: o filtro de título, ocorrência ou WBS vale só para esta página de 100. A lista pode estar truncada; tente pagina ${page + 1}.`
+      : "";
+  if (filtered.length === 0) return "Nenhum card encontrado." + warn;
   const labels = boardId ? await labelsFor(client, boardId) : undefined;
-  if (filtered.length === 0) return "Nenhum card encontrado.";
   const blocks = filtered.map((card) =>
     formatCard(card, {
       board: labels?.board,
@@ -76,10 +82,6 @@ export async function buscarCards(
       hours: loggedHours(card),
     }),
   );
-  const warn =
-    local && cards.length === 100
-      ? "\n\nAviso: o filtro de título, ocorrência ou WBS vale só para esta página de 100. A lista pode estar truncada."
-      : "";
   return blocks.join("\n\n") + warn;
 }
 
@@ -111,8 +113,9 @@ export async function listarHoras(
   if (args.cardId === undefined && !args.de && !args.ate) {
     throw new DomainError("Informe o card ou um intervalo de datas.");
   }
-  const from = args.de ? assertWorkDate(args.de) : undefined;
-  const to = args.ate ? assertWorkDate(args.ate) : undefined;
+  const from = args.de ? assertDateFormat(args.de) : undefined;
+  const to = args.ate ? assertDateFormat(args.ate) : undefined;
+  if (from && to && from > to) throw new DomainError("A data inicial é maior que a final.");
   const me = await getMe(client);
   const userId = num(me.user_id);
   const page = args.pagina ?? 1;
@@ -152,9 +155,18 @@ function matches(
     const title = str(card.title) ?? "";
     if (!title.toLowerCase().includes(args.titulo.trim().toLowerCase())) return false;
   }
-  if (args.ocorrencia && !fieldValueHas(card, fields, /ocorr/i, args.ocorrencia)) return false;
-  if (args.wbs && !fieldValueHas(card, fields, /wbs/i, args.wbs)) return false;
+  if (args.ocorrencia && !fieldValueHas(card, fields, OCORRENCIA, args.ocorrencia)) return false;
+  if (args.wbs && !fieldValueHas(card, fields, WBS, args.wbs)) return false;
   return true;
+}
+
+const OCORRENCIA = /ocorr/i;
+const WBS = /wbs/i;
+
+function assertFieldExists(fields: { name: string }[], pattern: RegExp, label: string): void {
+  if (!fields.some((field) => pattern.test(field.name))) {
+    throw new DomainError(`O board não tem campo de ${label}.`);
+  }
 }
 
 async function labelsFor(client: KanbanizeClient, boardId: number) {

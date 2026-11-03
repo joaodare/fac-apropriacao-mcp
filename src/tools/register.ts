@@ -1,6 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { KanbanizeClient } from "../kanbanize/client.js";
+import { DomainError } from "../kanbanize/errors.js";
 import { atualizarCard, criarCard } from "./cards.js";
 import { alterarHoras, excluirHoras, lancarHoras } from "./horas.js";
 import { buscarCards, listarBoards, listarCampos, listarHoras, obterCard, whoami } from "./leitura.js";
@@ -15,7 +16,7 @@ function text(value: string) {
 }
 
 function fail(error: unknown) {
-  const message = error instanceof Error && error.message ? error.message : "Erro inesperado.";
+  const message = error instanceof DomainError && error.message ? error.message : "Erro inesperado.";
   return { isError: true as const, content: [{ type: "text" as const, text: message }] };
 }
 
