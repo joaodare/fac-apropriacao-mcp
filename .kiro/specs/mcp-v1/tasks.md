@@ -29,6 +29,7 @@ Nomes em português. Resposta curta: id, título, board, coluna, raia, dono, pri
 
 - [ ] `buscar_cards` usa o board fixo IA FacPlan, ou um id de card desse board; página limitada a 100; não varre outros boards
 - [ ] Filtro de título, ocorrência ou WBS que a API não aplique no servidor filtra a página e avisa truncamento
+- [ ] `meus=true` em `buscar_cards` mantém cards em que o usuário da chave é `owner_user_id` ou está em `co_owner_ids`; card só observado fica de fora; filtra a página de até 100 e, se ela vier cheia, avisa a próxima página; não varre o board
 - [ ] `lancar_horas` grava no usuário da chave (`GET /api/v2/me`); sem `user_id` de terceiro
 - [ ] `PATCH` é parcial e não reenvia a descrição inteira ao mexer em campo, salvo se o OpenAPI da conta mostrar que o campo é apagado quando omitido
 - [ ] `comment` versus `description` e o body de `POST /cards` conferidos em `https://grupofacil.kanbanize.com/openapi/json`

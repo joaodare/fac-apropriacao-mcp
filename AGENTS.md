@@ -35,7 +35,7 @@ Fluxo: agente → servidor stdio → tools → resolvers e cliente v2 → API Bu
 - Data `YYYY-MM-DD`. Data futura é recusada.
 - O board é fixo: `IA FacPlan` (`BOARD_FIXO`). As tools não recebem board. Coluna, raia, tipo e campo customizado resolvem por nome, sem diferenciar maiúsculas. Coluna e raia respeitam `workflow_id`. Nome com ponto usa o último segmento.
 - Dropdown: o texto da opção vira `value_id` quando a API exigir id (`allowedValues` do board; se vazio, o global).
-- `buscar_cards` usa o board fixo, ou um id de card desse board. Página de no máximo 100. Filtro de título, ocorrência ou WBS que a API não aplique no servidor é feito na página, com aviso de truncamento. Não varrer outros boards.
+- `buscar_cards` usa o board fixo, ou um id de card desse board. Página de no máximo 100. Filtro de título, ocorrência, WBS ou `meus` é feito na página já buscada, com aviso de truncamento que pede a próxima página. `meus=true` mantém o card se o usuário da chave é `owner_user_id` ou está em `co_owner_ids`; card só observado não entra. Não há entidade watcher. `GET /me` só quando `meus=true`. `co_owner_ids` vem de `expand`, porque o OpenAPI não lista esse nome em `fields`. Não varrer outras páginas nem outros boards.
 - `lancar_horas` grava no usuário da chave (`GET /api/v2/me`). Sem `user_id` de terceiro.
 - `RL02` faz retry com `retry_after`. `ARU5` e `C191` viram frase curta em português, sem corpo cru e sem chave.
 - `PATCH` é parcial. Não reenviar a descrição inteira ao alterar um campo, salvo se o OpenAPI da conta (`https://grupofacil.kanbanize.com/openapi/json`) mostrar que o campo some quando omitido. Conferir `comment` versus `description` e o body de `POST /cards` nesse OpenAPI.

@@ -47,6 +47,10 @@ No `mcp.json` do Cursor, aponte para o build. Não cole uma chave real neste rep
 
 Substitua `SUA_CHAVE` no arquivo local do Cursor. O valor de exemplo acima não é uma chave.
 
+## Busca
+
+`buscar_cards` lê o board IA FacPlan, no máximo 100 cards por página. `meus=true` mantém o card quando o usuário da chave é o dono ou um co-owner. Quem apenas observa o card não entra. Título, ocorrência, WBS e `meus` filtram essa página em memória. Se a API devolver 100 cards, a resposta avisa para pedir a página seguinte. Uma última página com exatamente 100 cards também gera esse aviso.
+
 ## Contrato conferido no OpenAPI
 
 Em `https://grupofacil.kanbanize.com/openapi/json` (03/11/2026):
@@ -58,5 +62,6 @@ Em `https://grupofacil.kanbanize.com/openapi/json` (03/11/2026):
 - Dropdown no card vai em `selected_values_to_add_or_update[].value_id`.
 - `priority`: 1 Crítica, 2 Alta, 3 Média, 4 Baixa.
 - `GET /loggedTime/{id}` traz `user_id`; alterar e excluir horas recusam lançamento de outro usuário.
+- `GET /cards` traz `co_owner_ids` com `expand=co_owner_ids` (array de ids). Esse nome não está no enum de `fields`. A query tem `owner_user_ids`, mas `meus` não usa esse filtro: o co-owner precisa entrar na mesma página já buscada.
 
 O recorte usado nos testes está em `test/fixtures/openapi-recorte.json`.

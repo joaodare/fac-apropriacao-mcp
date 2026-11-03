@@ -42,10 +42,77 @@ function boardRoutes(call: Call, cards: unknown[], fields: unknown[] = []): Http
 describe("buscar_cards", () => {
   it("avisa truncamento mesmo quando a página cheia não tem nenhum card do filtro", async () => {
     const cards = Array.from({ length: 100 }, (_, i) => ({ card_id: i + 1, title: `Outro ${i}`, board_id: 3 }));
-    const { api } = client((call) => boardRoutes(call, cards));
+    const { api, calls } = client((call) => boardRoutes(call, cards));
     const text = await buscarCards(api, { titulo: "alvo" });
     expect(text).toMatch(/^Nenhum card encontrado\./);
     expect(text).toMatch(/Aviso: .*truncada; tente pagina 2/);
+    expect(calls.some((call) => call.url.pathname.endsWith("/me"))).toBe(false);
+  });
+
+  it("mantém dono e co-owner e exclui outro usuário", async () => {
+    const cards = [
+      { card_id: 1, title: "Meu", board_id: 3, owner_user_id: 7, co_owner_ids: [] },
+      { card_id: 2, title: "Junto", board_id: 3, owner_user_id: 8, co_owner_ids: [7] },
+      { card_id: 3, title: "Alheio", board_id: 3, owner_user_id: 9, co_owner_ids: [4], watcher_ids: [7] },
+      { card_id: 4, title: "Observado", board_id: 3, owner_user_id: 9, co_owner_ids: [], watcher_ids: [7] },
+      { card_id: 5, title: "Texto", board_id: 3, owner_user_id: 9, co_owner_ids: "7" },
+    ];
+    const { api, calls } = client((call) => {
+      if (call.url.pathname.endsWith("/me")) return json(200, { data: { user_id: 7 } });
+      return boardRoutes(call, cards);
+    });
+    const text = await buscarCards(api, { meus: true });
+    expect(text).toContain("Card 1 — Meu");
+    expect(text).toContain("Card 2 — Junto");
+    expect(text).not.toContain("Alheio");
+    expect(text).not.toContain("Observado");
+    expect(text).not.toContain("Texto");
+    expect(text).not.toMatch(/Aviso:/);
+    const paths = calls.map((call) => call.url.pathname.replace("/api/v2", ""));
+    expect(paths.filter((path) => path === "/me")).toEqual(["/me"]);
+    expect(paths.indexOf("/me")).toBeLessThan(paths.indexOf("/cards"));
+    expect(paths.some((path) => path.includes("customFields"))).toBe(false);
+    const list = calls.find((call) => call.url.pathname.endsWith("/cards"));
+    expect(list?.url.searchParams.get("expand")).toBe("co_owner_ids");
+    expect(list?.url.searchParams.get("fields")).toContain("owner_user_id");
+    expect(list?.url.searchParams.get("fields")).not.toContain("co_owner_ids");
+    expect(list?.url.searchParams.get("board_ids")).toBe("3");
+    expect(list?.url.searchParams.get("per_page")).toBe("100");
+  });
+
+  it("com card e meus exclui card de outro usuário sem ler o card solto", async () => {
+    const cards = [{ card_id: 3, title: "Alheio", board_id: 3, owner_user_id: 9, co_owner_ids: [] }];
+    const { api, calls } = client((call) => {
+      if (call.url.pathname.endsWith("/me")) return json(200, { data: { user_id: 7 } });
+      return boardRoutes(call, cards);
+    });
+    const text = await buscarCards(api, { cardId: 3, meus: true });
+    expect(text).toMatch(/^Nenhum card encontrado\./);
+    expect(calls.some((call) => call.url.pathname.endsWith("/cards/3"))).toBe(false);
+    expect(calls.find((call) => call.url.pathname.endsWith("/cards"))?.url.searchParams.get("card_ids")).toBe("3");
+  });
+
+  it("avisa a próxima página quando meus preenche a página", async () => {
+    const cards = Array.from({ length: 100 }, (_, i) => ({
+      card_id: i + 1,
+      title: "Daily",
+      board_id: 3,
+      owner_user_id: 8,
+      co_owner_ids: [] as number[],
+    }));
+    const { api, calls } = client((call) => {
+      if (call.url.pathname.endsWith("/me")) return json(200, { data: { user_id: 7 } });
+      return boardRoutes(call, cards);
+    });
+    const text = await buscarCards(api, { meus: true, pagina: 2 });
+    expect(text).toMatch(/^Nenhum card encontrado\./);
+    expect(text).toMatch(/meus/);
+    expect(text).toMatch(/truncada; tente pagina 3/);
+    expect(calls.filter((call) => call.url.pathname.endsWith("/me"))).toHaveLength(1);
+    const list = calls.find((call) => call.url.pathname.endsWith("/cards"));
+    expect(list?.url.searchParams.get("page")).toBe("2");
+    expect(list?.url.searchParams.get("per_page")).toBe("100");
+    expect(list?.url.searchParams.get("expand")).toContain("co_owner_ids");
   });
 
   it("recusa card de outro board", async () => {

@@ -38,12 +38,17 @@ export function registerTools(server: McpServer, client: KanbanizeClient): void 
   server.registerTool(
     "buscar_cards",
     {
-      description: "Busca cards no board IA FacPlan, ou um card pelo id. Página de no máximo 100.",
+      description:
+        "Busca cards no board IA FacPlan, ou um card pelo id. Página de no máximo 100. meus=true mantém só cards em que o usuário da chave é dono ou co-owner; quem só observa não entra. Com filtro local e página cheia, peça a próxima página.",
       inputSchema: z.object({
         card_id: z.number().int().positive().optional().describe("Id do card"),
         titulo: z.string().optional().describe("Trecho do título, filtrado nesta página"),
         ocorrencia: z.string().optional().describe("Valor do campo de ocorrência, filtrado nesta página"),
         wbs: z.string().optional().describe("Valor do campo WBS, filtrado nesta página"),
+        meus: z
+          .boolean()
+          .optional()
+          .describe("Se true, mantém cards em que o usuário da chave é dono ou co-owner, só nesta página"),
         pagina: z.number().int().positive().optional().describe("Página, a partir de 1"),
       }),
     },
@@ -54,6 +59,7 @@ export function registerTools(server: McpServer, client: KanbanizeClient): void 
           titulo: args.titulo,
           ocorrencia: args.ocorrencia,
           wbs: args.wbs,
+          meus: args.meus,
           pagina: args.pagina,
         }),
       ),

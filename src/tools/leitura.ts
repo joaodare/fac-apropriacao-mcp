@@ -26,12 +26,16 @@ export async function buscarCards(
     titulo?: string;
     ocorrencia?: string;
     wbs?: string;
+    meus?: boolean;
     pagina?: number;
   },
 ): Promise<string> {
   const page = args.pagina ?? 1;
   if (page < 1) throw new DomainError("Página inválida.");
-  const local = Boolean(args.titulo || args.ocorrencia || args.wbs);
+  const textLocal = Boolean(args.titulo || args.ocorrencia || args.wbs);
+  const mine = args.meus === true;
+  const local = textLocal || mine;
+  const userId = mine ? await currentUserId(client) : undefined;
   const board = await fixedBoard(client);
   const boardId = board.id;
   let cards: Record<string, unknown>[];
@@ -39,23 +43,25 @@ export async function buscarCards(
     cards = [await getCard(client, args.cardId)];
     await assertCardOnFixedBoard(client, args.cardId, num(cards[0]?.board_id));
   } else {
+    const parts: string[] = [];
+    if (textLocal) parts.push("custom_fields");
+    if (mine) parts.push("co_owner_ids");
+    const expand = parts.join(",");
     cards = await listCards(client, {
       board_ids: boardId,
       card_ids: args.cardId,
       page,
       fields: "card_id,title,board_id,workflow_id,column_id,lane_id,owner_user_id,priority,current_logged_time",
-      expand: local ? "custom_fields" : undefined,
+      expand: expand || undefined,
     });
   }
-  const fields = local && boardId ? await loadFields(client, boardId) : [];
+  const fields = textLocal && boardId ? await loadFields(client, boardId) : [];
   if (args.ocorrencia) assertFieldExists(fields, OCORRENCIA, "ocorrência");
   if (args.wbs) assertFieldExists(fields, WBS, "WBS");
-  const filtered = local
-    ? cards.filter((card) => matches(card, args, fields))
-    : cards;
+  const filtered = local ? cards.filter((card) => matches(card, args, fields, userId)) : cards;
   const warn =
     local && cards.length === 100
-      ? `\n\nAviso: o filtro de título, ocorrência ou WBS vale só para esta página de 100. A lista pode estar truncada; tente pagina ${page + 1}.`
+      ? `\n\nAviso: o filtro de título, ocorrência, WBS ou meus vale só para esta página de 100. A lista pode estar truncada; tente pagina ${page + 1}.`
       : "";
   if (filtered.length === 0) return "Nenhum card encontrado." + warn;
   const labels = boardId ? await labelsFor(client, boardId) : undefined;
@@ -134,8 +140,9 @@ export async function listarHoras(
 
 function matches(
   card: Record<string, unknown>,
-  args: { titulo?: string; ocorrencia?: string; wbs?: string },
+  args: { titulo?: string; ocorrencia?: string; wbs?: string; meus?: boolean },
   fields: { id: number; name: string; type: string }[],
+  userId?: number,
 ): boolean {
   if (args.titulo) {
     const title = str(card.title) ?? "";
@@ -143,7 +150,27 @@ function matches(
   }
   if (args.ocorrencia && !fieldValueHas(card, fields, OCORRENCIA, args.ocorrencia)) return false;
   if (args.wbs && !fieldValueHas(card, fields, WBS, args.wbs)) return false;
+  if (args.meus === true && (userId === undefined || !isMine(card, userId))) return false;
   return true;
+}
+
+async function currentUserId(client: KanbanizeClient): Promise<number> {
+  const userId = num((await getMe(client)).user_id);
+  if (userId === undefined) throw new DomainError("Não foi possível ler o usuário da chave.");
+  return userId;
+}
+
+function isMine(card: Record<string, unknown>, userId: number): boolean {
+  if (num(card.owner_user_id) === userId) return true;
+  return coOwnerIds(card.co_owner_ids).includes(userId);
+}
+
+function coOwnerIds(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const id = num(item);
+    return id === undefined ? [] : [id];
+  });
 }
 
 const OCORRENCIA = /ocorr/i;
