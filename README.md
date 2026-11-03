@@ -1,6 +1,6 @@
 # fac-apropriacao-mcp
 
-Servidor MCP stdio para lançar horas, criar cards e atualizar campos no Businessmap (API v2).
+Servidor MCP stdio para lançar horas, criar cards e atualizar campos no board **IA FacPlan** do Businessmap (API v2). As tools não pedem board.
 
 ## Configuração
 

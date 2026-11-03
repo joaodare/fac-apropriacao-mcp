@@ -1,3 +1,4 @@
+import { BOARD_FIXO } from "../config.js";
 import { KanbanizeClient, type Query } from "./client.js";
 import { DomainError } from "./errors.js";
 import { asRecord, listOf, num, oneOf, str } from "./json.js";
@@ -22,11 +23,21 @@ export async function listBoards(client: KanbanizeClient): Promise<NamedRef[]> {
   });
 }
 
-export async function resolveBoardId(client: KanbanizeClient, board: string): Promise<number> {
-  const trimmed = board.trim();
-  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+export async function fixedBoard(client: KanbanizeClient): Promise<NamedRef> {
   const boards = await listBoards(client);
-  return resolveByName(boards, trimmed, "Board").id;
+  return resolveByName(boards, BOARD_FIXO, "Board");
+}
+
+export async function assertCardOnFixedBoard(
+  client: KanbanizeClient,
+  cardId: number,
+  cardBoardId: number | undefined,
+): Promise<NamedRef> {
+  const board = await fixedBoard(client);
+  if (cardBoardId !== board.id) {
+    throw new DomainError(`O card ${cardId} não está no board ${board.name}.`);
+  }
+  return board;
 }
 
 export interface BoardStructure {

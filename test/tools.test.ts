@@ -1,8 +1,9 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { describe, expect, it } from "vitest";
 import { KanbanizeClient, type HttpFetch, type HttpResponse } from "../src/kanbanize/client.js";
-import { alterarHoras, excluirHoras } from "../src/tools/horas.js";
-import { buscarCards, listarHoras } from "../src/tools/leitura.js";
+import { atualizarCard } from "../src/tools/cards.js";
+import { alterarHoras, excluirHoras, lancarHoras } from "../src/tools/horas.js";
+import { buscarCards, listarHoras, obterCard } from "../src/tools/leitura.js";
 import { registerTools } from "../src/tools/register.js";
 
 const KEY = "test-key-not-real";
@@ -30,6 +31,7 @@ const structure = { data: { name: "Squad", columns: { "1": { name: "Doing", work
 
 function boardRoutes(call: Call, cards: unknown[], fields: unknown[] = []): HttpResponse {
   const path = call.url.pathname.replace("/api/v2", "");
+  if (path === "/boards") return json(200, { data: [{ board_id: 3, name: "IA FacPlan" }] });
   if (path === "/cards") return json(200, { data: { data: cards } });
   if (path === "/boards/3/customFields") return json(200, { data: fields.map((f) => ({ field_id: (f as { field_id: number }).field_id })) });
   if (path === "/customFields") return json(200, { data: fields });
@@ -41,17 +43,30 @@ describe("buscar_cards", () => {
   it("avisa truncamento mesmo quando a página cheia não tem nenhum card do filtro", async () => {
     const cards = Array.from({ length: 100 }, (_, i) => ({ card_id: i + 1, title: `Outro ${i}`, board_id: 3 }));
     const { api } = client((call) => boardRoutes(call, cards));
-    const text = await buscarCards(api, { board: "3", titulo: "alvo" });
+    const text = await buscarCards(api, { titulo: "alvo" });
     expect(text).toMatch(/^Nenhum card encontrado\./);
     expect(text).toMatch(/Aviso: .*truncada; tente pagina 2/);
+  });
+
+  it("recusa card de outro board", async () => {
+    const { api } = client((call) => {
+      const path = call.url.pathname.replace("/api/v2", "");
+      if (path === "/boards") return json(200, { data: [{ board_id: 3, name: "IA FacPlan" }] });
+      if (path === "/cards/9") return json(200, { data: { card_id: 9, title: "Fora", board_id: 17 } });
+      return json(404, {});
+    });
+    await expect(buscarCards(api, { cardId: 9 })).rejects.toThrow(/não está no board IA FacPlan/);
+    await expect(obterCard(api, 9)).rejects.toThrow(/não está no board IA FacPlan/);
+    await expect(atualizarCard(api, { cardId: 9, titulo: "Novo" })).rejects.toThrow(/não está no board IA FacPlan/);
+    await expect(lancarHoras(api, { cardId: 9, horas: 1, data: "2026-11-03" })).rejects.toThrow(/não está no board IA FacPlan/);
   });
 
   it("diz que o board não tem o campo em vez de responder vazio", async () => {
     const { api } = client((call) =>
       boardRoutes(call, [{ card_id: 1, title: "x", board_id: 3 }], [{ field_id: 5, name: "Cliente", type: "single_line_text" }]),
     );
-    await expect(buscarCards(api, { board: "3", wbs: "1.2" })).rejects.toThrow(/não tem campo de WBS/);
-    await expect(buscarCards(api, { board: "3", ocorrencia: "99" })).rejects.toThrow(/não tem campo de ocorrência/);
+    await expect(buscarCards(api, { wbs: "1.2" })).rejects.toThrow(/não tem campo de WBS/);
+    await expect(buscarCards(api, { ocorrencia: "99" })).rejects.toThrow(/não tem campo de ocorrência/);
   });
 });
 

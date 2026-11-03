@@ -1,3 +1,6 @@
+/** Board único deste servidor. A resolução não diferencia maiúsculas. */
+export const BOARD_FIXO = "IA FacPlan";
+
 export interface AppConfig {
   apiKey: string;
   subdomain: string;

@@ -27,7 +27,7 @@ Nomes em português. Resposta curta: id, título, board, coluna, raia, dono, pri
 
 ## Busca, horas e escrita
 
-- [ ] `buscar_cards` exige board ou id; página limitada a 100; não varre todos os boards
+- [ ] `buscar_cards` usa o board fixo IA FacPlan, ou um id de card desse board; página limitada a 100; não varre outros boards
 - [ ] Filtro de título, ocorrência ou WBS que a API não aplique no servidor filtra a página e avisa truncamento
 - [ ] `lancar_horas` grava no usuário da chave (`GET /api/v2/me`); sem `user_id` de terceiro
 - [ ] `PATCH` é parcial e não reenvia a descrição inteira ao mexer em campo, salvo se o OpenAPI da conta mostrar que o campo é apagado quando omitido

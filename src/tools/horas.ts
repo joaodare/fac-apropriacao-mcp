@@ -1,5 +1,5 @@
 import { buildLoggedTimeCreate, buildLoggedTimePatch } from "../kanbanize/bodies.js";
-import { formatUser, getMe } from "../kanbanize/catalog.js";
+import { assertCardOnFixedBoard, formatUser, getCard, getMe } from "../kanbanize/catalog.js";
 import { KanbanizeClient } from "../kanbanize/client.js";
 import { DomainError } from "../kanbanize/errors.js";
 import { num, oneOf, str } from "../kanbanize/json.js";
@@ -11,6 +11,8 @@ export async function lancarHoras(
 ): Promise<string> {
   const seconds = hoursToSeconds(args.horas);
   const date = assertWorkDate(args.data);
+  const card = await getCard(client, args.cardId);
+  await assertCardOnFixedBoard(client, args.cardId, num(card.board_id));
   const me = await getMe(client);
   const body = buildLoggedTimeCreate({
     cardId: args.cardId,

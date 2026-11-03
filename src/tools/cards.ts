@@ -1,5 +1,5 @@
 import { buildCreateCard, buildUpdateCard, parsePriority, priorityLabel, type FieldInput } from "../kanbanize/bodies.js";
-import { getCard, loadDropdownRows, loadFields, loadStructure, loadTypes, resolveBoardId } from "../kanbanize/catalog.js";
+import { assertCardOnFixedBoard, fixedBoard, getCard, loadDropdownRows, loadFields, loadStructure, loadTypes } from "../kanbanize/catalog.js";
 import { KanbanizeClient } from "../kanbanize/client.js";
 import { DomainError } from "../kanbanize/errors.js";
 import { num, oneOf, str } from "../kanbanize/json.js";
@@ -14,7 +14,6 @@ export interface CampoInput {
 export async function criarCard(
   client: KanbanizeClient,
   args: {
-    board: string;
     titulo: string;
     coluna: string;
     raia: string;
@@ -24,7 +23,7 @@ export async function criarCard(
     campos?: CampoInput[];
   },
 ): Promise<string> {
-  const boardId = await resolveBoardId(client, args.board);
+  const boardId = (await fixedBoard(client)).id;
   const structure = await loadStructure(client, boardId);
   const place = resolvePlacement(structure.columns, structure.lanes, args.coluna, args.raia);
   const typeId = args.tipo ? resolveByName(await loadTypes(client, boardId), args.tipo, "Tipo").id : undefined;
@@ -71,8 +70,7 @@ export async function atualizarCard(
   },
 ): Promise<string> {
   const current = await getCard(client, args.cardId);
-  const boardId = num(current.board_id);
-  if (!boardId) throw new DomainError("Card sem board.");
+  const boardId = (await assertCardOnFixedBoard(client, args.cardId, num(current.board_id))).id;
   const typeId = args.tipo ? resolveByName(await loadTypes(client, boardId), args.tipo, "Tipo").id : undefined;
   const priority = args.prioridade ? parsePriority(args.prioridade) : undefined;
   const fields = await resolveFieldInputs(client, boardId, args.campos);

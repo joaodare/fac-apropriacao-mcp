@@ -6,7 +6,8 @@ import {
   listCards,
   loadFields,
   loadStructure,
-  resolveBoardId,
+  assertCardOnFixedBoard,
+  fixedBoard,
 } from "../kanbanize/catalog.js";
 import { KanbanizeClient } from "../kanbanize/client.js";
 import { DomainError } from "../kanbanize/errors.js";
@@ -32,7 +33,6 @@ export async function listarBoards(client: KanbanizeClient, nome?: string): Prom
 export async function buscarCards(
   client: KanbanizeClient,
   args: {
-    board?: string;
     cardId?: number;
     titulo?: string;
     ocorrencia?: string;
@@ -40,19 +40,16 @@ export async function buscarCards(
     pagina?: number;
   },
 ): Promise<string> {
-  if (!args.board && args.cardId === undefined) {
-    throw new DomainError("Informe o board ou o id do card.");
-  }
   const page = args.pagina ?? 1;
   if (page < 1) throw new DomainError("Página inválida.");
   const local = Boolean(args.titulo || args.ocorrencia || args.wbs);
+  const board = await fixedBoard(client);
+  const boardId = board.id;
   let cards: Record<string, unknown>[];
-  let boardId: number | undefined;
-  if (args.cardId !== undefined && !args.board) {
+  if (args.cardId !== undefined && !local) {
     cards = [await getCard(client, args.cardId)];
-    boardId = num(cards[0]?.board_id);
+    await assertCardOnFixedBoard(client, args.cardId, num(cards[0]?.board_id));
   } else {
-    boardId = await resolveBoardId(client, args.board ?? "");
     cards = await listCards(client, {
       board_ids: boardId,
       card_ids: args.cardId,
@@ -87,7 +84,7 @@ export async function buscarCards(
 
 export async function obterCard(client: KanbanizeClient, cardId: number): Promise<string> {
   const card = await getCard(client, cardId);
-  const boardId = num(card.board_id);
+  const boardId = (await assertCardOnFixedBoard(client, cardId, num(card.board_id))).id;
   const fields = boardId ? await loadFields(client, boardId) : [];
   const labels = boardId ? await labelsFor(client, boardId) : undefined;
   return formatCard(card, {
@@ -99,8 +96,8 @@ export async function obterCard(client: KanbanizeClient, cardId: number): Promis
   });
 }
 
-export async function listarCampos(client: KanbanizeClient, board: string): Promise<string> {
-  const boardId = await resolveBoardId(client, board);
+export async function listarCampos(client: KanbanizeClient): Promise<string> {
+  const boardId = (await fixedBoard(client)).id;
   const fields = await loadFields(client, boardId);
   if (fields.length === 0) return "Nenhum campo encontrado.";
   return fields.map((field) => `${field.id} — ${field.name} (${field.type || "texto"})`).join("\n");

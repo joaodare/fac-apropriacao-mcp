@@ -38,7 +38,7 @@ export function registerTools(server: McpServer, client: KanbanizeClient): void 
   server.registerTool(
     "listar_boards",
     {
-      description: "Lista boards visíveis para a chave.",
+      description: "Lista boards visíveis para a chave. As outras tools usam só o board IA FacPlan.",
       inputSchema: z.object({
         nome: z.string().optional().describe("Filtra pelo nome, sem diferenciar maiúsculas"),
       }),
@@ -49,9 +49,8 @@ export function registerTools(server: McpServer, client: KanbanizeClient): void 
   server.registerTool(
     "buscar_cards",
     {
-      description: "Busca cards de um board ou por id. Página de no máximo 100. Não varre todos os boards.",
+      description: "Busca cards no board IA FacPlan, ou um card pelo id. Página de no máximo 100.",
       inputSchema: z.object({
-        board: z.string().optional().describe("Nome ou id do board"),
         card_id: z.number().int().positive().optional().describe("Id do card"),
         titulo: z.string().optional().describe("Trecho do título, filtrado nesta página"),
         ocorrencia: z.string().optional().describe("Valor do campo de ocorrência, filtrado nesta página"),
@@ -62,7 +61,6 @@ export function registerTools(server: McpServer, client: KanbanizeClient): void 
     async (args) =>
       run(() =>
         buscarCards(client, {
-          board: args.board,
           cardId: args.card_id,
           titulo: args.titulo,
           ocorrencia: args.ocorrencia,
@@ -86,12 +84,9 @@ export function registerTools(server: McpServer, client: KanbanizeClient): void 
   server.registerTool(
     "listar_campos",
     {
-      description: "Lista campos customizados de um board.",
-      inputSchema: z.object({
-        board: z.string().min(1).describe("Nome ou id do board"),
-      }),
+      description: "Lista campos customizados do board IA FacPlan.",
     },
-    async (args) => run(() => listarCampos(client, args.board)),
+    async () => run(() => listarCampos(client)),
   );
 
   server.registerTool(
@@ -167,9 +162,8 @@ export function registerTools(server: McpServer, client: KanbanizeClient): void 
   server.registerTool(
     "criar_card",
     {
-      description: "Cria um card no board, coluna e raia informados.",
+      description: "Cria um card no board IA FacPlan, na coluna e raia informadas.",
       inputSchema: z.object({
-        board: z.string().min(1).describe("Nome ou id do board"),
         titulo: z.string().min(1),
         coluna: z.string().min(1).describe("Nome da coluna"),
         raia: z.string().min(1).describe("Nome da raia"),
@@ -182,7 +176,6 @@ export function registerTools(server: McpServer, client: KanbanizeClient): void 
     async (args) =>
       run(() =>
         criarCard(client, {
-          board: args.board,
           titulo: args.titulo,
           coluna: args.coluna,
           raia: args.raia,

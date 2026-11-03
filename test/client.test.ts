@@ -95,8 +95,10 @@ describe("lançamento e atualização sem rede", () => {
   it("grava o lançamento em segundos no usuário da chave", async () => {
     const bodies: unknown[] = [];
     const api = client(async (url, init) => {
+      if (url.endsWith("/boards")) return json(200, { data: [{ board_id: 3, name: "IA FacPlan" }] });
+      if (url.endsWith("/cards/10")) return json(200, { data: { card_id: 10, board_id: 3, title: "Card" } });
       if (url.endsWith("/me")) return json(200, { data: { user_id: 7, realname: "Ana", email: "ana@example.com" } });
-      bodies.push(JSON.parse(init.body ?? "{}"));
+      if (init.method === "POST") bodies.push(JSON.parse(init.body ?? "{}"));
       return json(200, { data: { logged_time_id: 9, card_id: 10, time: 3600, date: "2026-11-02" } });
     });
     const text = await lancarHoras(api, { cardId: 10, horas: 1, data: "2026-11-02", comentario: "nota" });
@@ -115,6 +117,7 @@ describe("lançamento e atualização sem rede", () => {
         if (init.method === "GET") return json(200, { data: { card_id: 10, board_id: 3, title: "Antigo" } });
         return json(200, { data: { card_id: 10 } });
       }
+      if (url.endsWith("/boards")) return json(200, { data: [{ board_id: 3, name: "IA FacPlan" }] });
       if (url.endsWith("/boards/3/customFields")) return json(200, { data: [{ field_id: 5 }] });
       if (url.endsWith("/customFields")) {
         return json(200, { data: [{ field_id: 5, name: "WBS", type: "single_line_text" }] });
